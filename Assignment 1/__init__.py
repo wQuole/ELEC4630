@@ -1,17 +1,15 @@
 import os
-import preprocessing
-from skimage import io
 import cv2 as cv
-from matplotlib import pyplot as plt
+import preprocessing
 
-FILEPATH = os.path.abspath("./images")
-OUTPUT = os.path.abspath(("./output"))
+FILEPATH = os.path.abspath("images")
+OUTPUT = os.path.abspath(("output"))
 
 def save_images(images):
     for i in range(len(images)):
         try:
-            io.imsave(f"{OUTPUT}/car{i}", images[i])
-            print(u'\u2713')
+            cv.imwrite(f"{OUTPUT}/out_car_{i}.jpg", images[i])
+            print(f"Saving number plate {i+1} \U0001F4BE")
         except IOError :
             return f"Error while saving file number: {i}"
     print(f"Succesfully saved {len(images)} images to {OUTPUT}")
@@ -25,4 +23,4 @@ if __name__ == '__main__':
     #plt.imshow(img, cmap='gray') # https://matplotlib.org/tutorials/introductory/images.html
     #plt.show()
     prepped = preprocessing.preprocess_images(images)
-    #save_images(prepped)
+    save_images(prepped)
