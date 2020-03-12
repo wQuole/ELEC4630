@@ -7,20 +7,6 @@ from skimage import feature
 from skimage import img_as_ubyte
 from matplotlib import pyplot as plt
 
-
-class formatting:
-    PURPLE = '\033[95m'
-    CYAN = '\033[96m'
-    DARKCYAN = '\033[36m'
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    END = '\033[0m'
-
-
 MIN_HEIGHT = 720
 MIN_WIDTH = 1280
 MIN_THRESH = 192
@@ -32,7 +18,7 @@ def load_images(filepath, carNumber=' '):
     for file in sorted(glob.glob(f"{filepath}/*.jpg")):
         if file.lower().endswith('.jpg'):
             img = cv.imread(file, 1)
-            #img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+            img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
             images.append(img)
     if carNumber !=' ' and isinstance(carNumber, int):
         try:
@@ -60,18 +46,25 @@ def get_contours(image, threshold):
     for cnt in updated_contours:
         perimeter = cv.arcLength(cnt, True)
         approx = cv.approxPolyDP(cnt, 0.04 * perimeter, True)
-        if len(approx) == 4:
+        if len(approx) < 0:
             x = approx.ravel()[0]
             y = approx.ravel()[1]
             cv.putText(image, "Number Plate", (x, y), cv.FONT_HERSHEY_COMPLEX, 1, (255, 255, 0))
-            cv.drawContours(image, [approx], -1, (0,255,0), 2)
+            cv.drawContours(image, [approx], -1, (0,255,0), 3)
             print(f"Added a candidate! \U0001F919 ")
+            break
+        elif len(approx) < 4 and len(approx) > 0:
+            convexHull = cv.convexHull(approx[0])
+            perimeter_sec = cv.arcLength(convexHull, True)
+            approx_sec = cv.approxPolyDP(convexHull, 0.04*perimeter_sec, True)
+            cv.drawContours(image, [approx_sec], -1, (0, 255, 0), 2)
+            print(f"Added a candidate v.2.0! \U0001F918 ")
             break
 
 
 def get_edges(image, opencv=False):
     if not opencv:
-        return feature.canny(image, sigma=1)
+        return feature.canny(image, sigma=1.5)
     return cv.Canny(image, 100, 200, L2gradient=0)
 
 
@@ -87,6 +80,15 @@ def flood_filler(im, seed_point=(0,0)):
     plt.imshow(image, cmap='gray')
     plt.show()
 
+def adjust_gamma(image, gamma=1.0):
+    # build a lookup table mapping the pixel values [0, 255] to
+    # their adjusted gamma values
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255
+                      for i in np.arange(0, 256)]).astype("uint8")
+    # apply gamma correction using the lookup table
+    return cv.LUT(image, table)
+
 
 def preprocess_images(images):
     out = []
@@ -94,19 +96,33 @@ def preprocess_images(images):
     for image in images:
         orig_img = check_size(image.copy())
         img = cv.cvtColor(orig_img.copy(), cv.COLOR_RGB2GRAY)
-        blurred = cv.GaussianBlur(img, (7,7), 2)
+        adjusted = adjust_gamma(img, gamma=1.0)
+        #equ = cv.equalizeHist(adjusted)
+        blurred = cv.GaussianBlur(adjusted, (7, 7), 2)
         #blurred = cv.bilateralFilter(img, 11, 17, 17)
-        #threshold = cv.adaptiveThreshold(blurred,
+        # threshold = cv.adaptiveThreshold(blurred,
         #                                  maxValue=255,
-        #                                  adaptiveMethod=cv.ADAPTIVE_THRESH_MEAN_C,
+        #                                  adaptiveMethod=cv.ADAPTIVE_THRESH_GAUSSIAN_C,
         #                                  thresholdType=cv.THRESH_BINARY,
-        #                                  blockSize=35,
-        #                                  C=7)
-        _, threshold = cv.threshold(blurred, MIN_THRESH, MAX_THRESH, cv.THRESH_BINARY | cv.THRESH_OTSU)
-        edges = get_edges(threshold, opencv=0)
-        #plt.imshow(edges)
-        #plt.show()
+        #                                  blockSize=11,
+        #                                  C=4)
+        _, threshold = cv.threshold(blurred, MIN_THRESH, MAX_THRESH, cv.THRESH_OTSU)
+        mask = cv.bitwise_and(img, threshold)
+        #kernel = cv.getStructuringElement(cv.MORPH_CROSS, (2,2))
+        #erode = cv.erode(threshold, kernel, iterations=1)
+        #closing = cv.morphologyEx(erode, cv.MORPH_CLOSE, kernel, iterations=1)
+        #closing = cv.morphologyEx(threshold, cv.MORPH_CLOSE, kernel, iterations=1)
+        #dilate = cv.dilate(closing, kernel, iterations=1)
+        #gradient = cv.morphologyEx(closing, cv.MORPH_GRADIENT, kernel, iterations=1)
+        #inverted_edges = cv.bitwise_not(gradient)
+        # res = np.hstack((threshold, closing))
+        # plt.imshow(res, cmap='gray')
+        # plt.show()
+        edges = get_edges(mask, opencv=True)
         cv_image = img_as_ubyte(edges)
+        res = np.hstack((cv_image, mask))
+        plt.imshow(res, cmap='gray')
+        #plt.show()
         get_contours(orig_img, cv_image)
 
         out.append(orig_img)
