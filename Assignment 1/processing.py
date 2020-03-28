@@ -76,7 +76,7 @@ def get_contours2(image, edges):
         x, y, w, h = cv.boundingRect(cnt)
 
         ratio = float(h)/w
-        if ratio < 0.5 and ratio > 0.18: #and h > 36 * 0.4 and y < 16
+        if ratio < 0.5 and ratio > 0.18:
 
             cv.rectangle(image,(x,y),(x+w,y+h),(0,255,0), 3)
 
