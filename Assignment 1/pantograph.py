@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,11 +6,11 @@ import matplotlib.pyplot as plt
 
 def getCrop(frame, point1, point2):
     img = frame.copy()
-    padding = 1 # 1 pixel padding
+    padding = 1 # 1 pixel for padding
     return img[0:point1[1] + padding, point1[0]:point2[0] - padding]
 
 
-def houghlineProbabilisticProcessFrame(orig_frame, frame, dx, dy):
+def houghlineProbabilisticProcessFrame(frame):
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     gray_copy = np.copy(gray)
     edges = cv.Canny(gray_copy, 50, 150, apertureSize=3)
@@ -19,16 +20,14 @@ def houghlineProbabilisticProcessFrame(orig_frame, frame, dx, dy):
             cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
     except:
         pass
-    cv.imshow("Hough", frame)
 
 
 def houghlineStandardProcessFrame(frame):
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     lines = np.copy(gray)
-    edges = cv.Canny(lines, 50, 200, apertureSize=3)
-    lines = cv.HoughLines(edges, 1, np.pi/180, 150, None, 0, 0) #threshold=150, lines=None, srn=0, stn=0
+    edges = cv.Canny(lines, 70, 200, apertureSize=3)
+    lines = cv.HoughLines(edges, 1, np.pi/180, 192, None, 0, 0)
 
-    # Draw the lines
     if lines is not None:
         for i in range(0, len(lines)):
             rho = lines[i][0][0]
@@ -40,41 +39,36 @@ def houghlineStandardProcessFrame(frame):
             pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
             pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
             cv.line(gray, pt1, pt2, (0, 0, 255), 3, cv.LINE_AA)
-
     return gray
 
 
 def morphProcessFrame(frame):
-    '''
-    source: https://docs.opencv.org/3.4/dd/dd7/tutorial_morph_lines_detection.html
-    :param frame: numpy.ndarray
-    :return: 0
-    '''
+    # source: https://docs.opencv.org/3.4/dd/dd7/tutorial_morph_lines_detection.html
     try:
-        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        lines = np.copy(gray)
-        lines = cv.bitwise_not(lines)
-        lines = cv.adaptiveThreshold(lines, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
         verticalSize = 16
         verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalSize))
+
+        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+
+        lines = np.copy(gray)
+        lines = cv.bitwise_not(lines)
+        lines = cv.adaptiveThreshold(lines, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, -3)
         lines = cv.erode(lines, verticalStructure, iterations=1)
-        lines = cv.dilate(lines, verticalStructure, iterations=1)
+        lines = cv.dilate(lines, verticalStructure, iterations=2)
 
-        inverse = cv.bitwise_not(lines)
+        #inverse = cv.bitwise_not(lines)
+        #edges = cv.adaptiveThreshold(inverse, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 13, -3)
+        #kernel = np.ones((2, 2), np.uint8)
+        #edges = cv.dilate(edges, kernel)
 
-        edges = cv.adaptiveThreshold(inverse, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 3, -2)
-        # _, edges = cv.threshold(inverse, 1, 255, cv.THRESH_BINARY)
-        kernel = np.ones((2, 2), np.uint8)
-        edges = cv.dilate(edges, kernel)
         smooth = np.copy(lines)
         #smooth = cv.blur(smooth, (2, 2))
-        #smooth = cv.GaussianBlur(smooth, (5,5), 0)
+        #smooth = cv.GaussianBlur(smooth, (7,7), 2)
         smooth = cv.bilateralFilter(smooth, 11, 17, 17)
-        (rows, columns) = np.where(edges != 0)
+        rows, columns = np.where(smooth != 0)
         lines[rows, columns] = smooth[rows, columns]
     except:
-        # Keep the processing running
-        pass
+        pass # Keep the processing running
     return lines
 
 
@@ -83,7 +77,7 @@ def getContour(orig_frame, edges, dx, dy):
         contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         power_cable = sorted(contours, key=cv.contourArea, reverse=True)[0]
         epsilon = cv.arcLength(power_cable, True)
-        approx = cv.approxPolyDP(power_cable, epsilon*0.1, True)
+        approx = cv.approxPolyDP(power_cable, epsilon*0.069, True)
         padding = 10
         x, y = approx.ravel()[0], approx.ravel()[1]
         fontScale = (orig_frame.shape[0] * orig_frame.shape[1])/(np.power(10, 6))
@@ -124,10 +118,7 @@ def main():
         print("No frames to read...")
 
     # Set Bounding Box for Region of Interest
-    bounding_box = cv.selectROI('tracking', init_frame)
-
-    # Close selection-window after selected
-    cv.destroyWindow('tracking')
+    bounding_box = (293, 173, 376, 87) # alternatively: use cv.selectROI('tracking', init_frame)
 
     # Set tracker and initialize "Toggle switch" for tracking
     tracker = cv.TrackerMOSSE_create()
