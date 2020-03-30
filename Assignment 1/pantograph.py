@@ -38,56 +38,42 @@ def houghlineStandardProcessFrame(frame):
             y0 = b * rho
             pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
             pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
-            cv.line(gray, pt1, pt2, (0, 0, 255), 3, cv.LINE_AA)
-    return gray
+            cv.line(lines, pt1, pt2, (0, 0, 255), 3, cv.LINE_AA)
+    return lines
 
 
 def morphProcessFrame(frame):
     # source: https://docs.opencv.org/3.4/dd/dd7/tutorial_morph_lines_detection.html
-    try:
-        verticalSize = 16
-        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalSize))
+    verticalSize = 16
+    verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalSize))
 
-        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-        lines = np.copy(gray)
-        lines = cv.bitwise_not(lines)
-        lines = cv.adaptiveThreshold(lines, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, -3)
-        lines = cv.erode(lines, verticalStructure, iterations=1)
-        lines = cv.dilate(lines, verticalStructure, iterations=2)
+    lines = np.copy(gray)
+    lines = cv.bitwise_not(lines)
+    lines = cv.adaptiveThreshold(lines, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, -3)
+    lines = cv.erode(lines, verticalStructure, iterations=1)
+    lines = cv.dilate(lines, verticalStructure, iterations=2)
 
-        #inverse = cv.bitwise_not(lines)
-        #edges = cv.adaptiveThreshold(inverse, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 13, -3)
-        #kernel = np.ones((2, 2), np.uint8)
-        #edges = cv.dilate(edges, kernel)
+    smooth = np.copy(lines)
+    smooth = cv.bilateralFilter(smooth, 11, 17, 17)
+    rows, columns = np.where(smooth != 0)
+    lines[rows, columns] = smooth[rows, columns]
 
-        smooth = np.copy(lines)
-        #smooth = cv.blur(smooth, (2, 2))
-        #smooth = cv.GaussianBlur(smooth, (7,7), 2)
-        smooth = cv.bilateralFilter(smooth, 11, 17, 17)
-        rows, columns = np.where(smooth != 0)
-        lines[rows, columns] = smooth[rows, columns]
-    except:
-        pass # Keep the processing running
     return lines
 
 
 def getContour(orig_frame, edges, dx, dy):
-    try:
-        contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-        power_cable = sorted(contours, key=cv.contourArea, reverse=True)[0]
-        epsilon = cv.arcLength(power_cable, True)
-        approx = cv.approxPolyDP(power_cable, epsilon*0.069, True)
-        padding = 10
-        x, y = approx.ravel()[0], approx.ravel()[1]
-        fontScale = (orig_frame.shape[0] * orig_frame.shape[1])/(np.power(10, 6))
+    contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    power_cable = sorted(contours, key=cv.contourArea, reverse=True)[0]
+    epsilon = cv.arcLength(power_cable, True)
+    approx = cv.approxPolyDP(power_cable, epsilon*0.069, True)
+    x, y = approx.ravel()[0], approx.ravel()[1]
+    fontScale = (orig_frame.shape[0] * orig_frame.shape[1])/(np.power(10, 6))
 
-        cv.putText(orig_frame, "Power Cable", (x + dx + padding, y + dy + padding), cv.FONT_HERSHEY_COMPLEX, fontScale, (255, 255, 0))
-        cv.drawContours(orig_frame, [approx], -1, (0, 255, 0), thickness=2, lineType=cv.LINE_AA, offset=(dx, dy))
-        return approx
-    except:
-        # Keep the contouring running
-        pass
+    cv.putText(orig_frame, "Power Cable", (x + dx + 10, y + dy + 10), cv.FONT_HERSHEY_COMPLEX, fontScale, (255, 255, 0))
+    cv.drawContours(orig_frame, [approx], -1, (0, 255, 0), thickness=2, lineType=cv.LINE_AA, offset=(dx, dy))
+    return approx
 
 
 def setCrosshair(orig_img, contour, dx, dy):
@@ -105,8 +91,9 @@ def initGraph(style='dark_background'):
     plt.style.use(style)
     fig = plt.figure(figsize=(8, 10))
     ax = fig.add_subplot(111)
-    ax.set_xlim(left=100, right=400)
+    ax.set_xlim(left=0, right=854) # width of videofile
     fig.show()
+
     return xs, ys, fig, ax, y_pos
 
 
