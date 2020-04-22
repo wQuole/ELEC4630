@@ -50,12 +50,13 @@ def show_figures(images, titles=[], rows=1, save=False):
         if not titles[i-1]:
             plt.gca().set_title(f"Subplot_{i-1}")
         plt.gca().set_title(titles[i-1])
+        plt.axis('off')
         plt.imshow(images[i-1], cmap='gray')
     if save:
-        plt.savefig(f"output/MRI_Convex/convex_{i}.png")
+        now = datetime.now()
+        plt.savefig(f"output/MRI_Convex/convex_{now}.png")
         print(f"Saved a figure \U0001F4BE")
     plt.show()
-
 
 
 def show_figure_snakes(orig_img, inner, outer, save=False):
@@ -68,6 +69,15 @@ def show_figure_snakes(orig_img, inner, outer, save=False):
     if save:
         now = datetime.now()
         fig.savefig(f"output/MRI_Snakes/snakes_{now}.jpeg")
+
+
+def show_images_grid(images, n_row=4, n_col=4):
+    fig, axs = plt.subplots(n_row, n_col, figsize=(12, 12))
+    axs = axs.flatten()
+    for img, ax in zip(images, axs):
+        ax.imshow(img)
+        ax.set_xticks([]), ax.set_yticks([])
+    plt.show()
 
 
 def get_crop(frame, point1, point2):
