@@ -2,6 +2,9 @@ import glob
 import cv2 as cv
 from datetime import datetime
 from matplotlib import pyplot as plt
+import matplotlib.pyplot as mpl
+import matplotlib.gridspec as gridspec
+mpl.rcParams['savefig.pad_inches'] = 0
 
 def save_image(destination, images, label=""):
     for i in range(len(images)):
@@ -20,10 +23,10 @@ def load_single_image(filepath):
     return img
 
 
-def load_images(filepath):
+def load_images(filepath, extension="png"):
     images = []
-    for file in sorted(glob.glob(f"{filepath}/*.png")):
-        if file.lower().endswith('.png'):
+    for file in sorted(glob.glob(f"{filepath}/*.{extension}")):
+        if file.lower().endswith(f".{extension}"):
             img = cv.imread(file, 1)
             img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
             images.append(img)
@@ -62,7 +65,7 @@ def show_figures(images, titles=[], rows=1, save=False):
 def show_figure_snakes(orig_img, inner, outer, save=False):
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.imshow(orig_img)
-    ax.plot(inner[:, 1], inner[:, 0], '-b', lw=1)
+    ax.plot(inner[:, 1], inner[:, 0], '-r', lw=1)
     ax.plot(outer[:, 1], outer[:, 0], '-r', lw=1)
     ax.set_xticks([]), ax.set_yticks([])
     plt.show()
@@ -71,13 +74,21 @@ def show_figure_snakes(orig_img, inner, outer, save=False):
         fig.savefig(f"output/MRI_Snakes/snakes_{now}.jpeg")
 
 
-def show_images_grid(images, n_row=4, n_col=4):
-    fig, axs = plt.subplots(n_row, n_col, figsize=(12, 12))
+def show_images_snakes(images, n_row=4, n_col=4):
+    fig, axs = plt.subplots(n_row, n_col, figsize=(10, 10))
     axs = axs.flatten()
+    gs1 = gridspec.GridSpec(4, 4)
+    gs1.update(wspace=0.025, hspace=0.05)  # set the spacing between axes.
     for img, ax in zip(images, axs):
         ax.imshow(img)
-        ax.set_xticks([]), ax.set_yticks([])
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_aspect('equal')
+    plt.autoscale(tight=True)
+    plt.subplots_adjust(wspace=0, hspace=0)
+    #plt.tight_layout()
     plt.show()
+    fig.savefig(f"output/MRI_Snakes/snakes_grid.pdf", bbox_inches='tight', transparent=True, pad_inches=0)
 
 
 def get_crop(frame, point1, point2):
