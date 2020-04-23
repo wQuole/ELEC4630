@@ -108,29 +108,21 @@ def show_figures(images, titles=[], rows=1):
     plt.show()
 
 
-def attemptOne(image):
-    orig_img = check_size(image)
-    img = cv.cvtColor(orig_img.copy(), cv.COLOR_BGR2GRAY)
-
-    blurred = cv.GaussianBlur(img, (5,5), 0)
-    _, threshold = cv.threshold(blurred, 0, MAX_THRESH, cv.THRESH_OTSU)
-
-    mask = cv.bitwise_and(img, threshold)
-
-    edges = img_as_ubyte(get_canny(mask))
-    set_contour_approximate(orig_img, edges)
-
-    #show_figures([img, threshold, mask, edges, get_crop(orig_img, 1)], titles=["Original", "Threshold", "Masked", "Edged", "Result"])
-    #saveFigures([img, threshold, mask, edges, getCrop(orig_img, 1)], titles=["Original", "Threshold", "Masked", "Edged", "Result"])
-    return orig_img
+def adjust_gamma(image, gamma=1.0):
+    # source: https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
+    img = image.copy()
+    inverted_gamma = 1.0 / gamma
+    look_up_table = np.array([((i / 255.0) ** inverted_gamma) * 255
+                      for i in np.arange(0, 256)]).astype("uint8")
+    return cv.LUT(img , look_up_table)
 
 
 def hough_transform_lines(image, prob=True):
     orig_img = image
     # Select Region of Interest
     ROI = cv.selectROI("ROI", image)
-    p1, p2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
-    img = get_crop(image, p1, p2)
+    point1, point2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
+    img = get_crop(image, point1, point2)
 
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     blurred = cv.GaussianBlur(gray, (7,7), 0)
@@ -145,7 +137,8 @@ def hough_transform_lines(image, prob=True):
             x1, y1, x2, y2 = line[0]
             print(f"x1, y1, x2, y2 -->", x1, y1, x2, y2)
             # Update coords due to crop --> Project back on to original image
-            y1 += p1[1]; y2 += p1[1]
+            y1 += point1[1]
+            y2 += point1[1]
             # Draw line back onto original image
             cv.line(orig_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
@@ -167,34 +160,58 @@ def hough_transform_lines(image, prob=True):
     plt.imshow(orig_img)
     plt.show()
 
-def hough_transform_circles(image, max_slider):
+def hough_transform_circles(image, tires=False):
     orig_img = image
     # Select Region of Interest
     ROI = cv.selectROI("ROI", image)
-    p1, p2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
-    img = get_crop(image, p1, p2)
-
+    point1, point2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
+    # Prepare image
+    img = get_crop(image, point1, point2)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    blurred = cv.GaussianBlur(gray, (7,7), 0)
-    p1 = max_slider
-    p2 = max_slider * 0.6
+    blurred = cv.GaussianBlur(gray, (7, 7), 0)
 
     # Detect lines
-    # params: image, method, dp, minDist, circles=None, param1=None, param2=None, minRadius=None, maxRadius=None): # real signature unknown; restored from __doc__
-    circles = cv.HoughCircles(blurred, cv.HOUGH_GRADIENT, 1, blurred.shape[0]/64, param1=p1, param2=p2, minRadius=52, maxRadius=60)
-
-    if circles is not None:
-        length = circles.shape[1]
-        circles = np.uint32(np.around(circles))
-        for i in circles[0, :]:
-            print("i[0]",i[0])
-            print("i[1]", i[1])
-            cv.circle(img, (i[0], i[1]), i[2], (0, 255, 0), 3)
-            cv.circle(img, (i[0], i[1]), 2, (0, 255, 0), 3)
+    rims = cv.HoughCircles(image=blurred,
+                              method=cv.HOUGH_GRADIENT,
+                              dp=1,
+                              minDist=(blurred.shape[0]/64),
+                              param1=100,
+                              param2=65,
+                              minRadius=52,
+                              maxRadius=60)
+    if rims is not None:
+        rims = np.uint16(np.around(rims))[0,:]
+        for i in rims:
+            # Mapping to project back to original from ROI
+            dy = point1[1]
+            # Draw circle where HoughCircles were detected
+            r = i[2]
+            cv.circle(orig_img, (i[0], i[1] + dy), radius=r, color=(0, 255, 0), thickness=2)
+            # Draw center of circle as dot
+            cv.circle(orig_img, (i[0], i[1] + dy), radius=1, color=(255, 0, 0), thickness=3)
+    if tires:
+        tires = cv.HoughCircles(image=blurred,
+                               method=cv.HOUGH_GRADIENT,
+                               dp=1,
+                               minDist=(blurred.shape[0] / 64),
+                               param1=42,
+                               param2=32,
+                               minRadius=80,
+                               maxRadius=90)
+        if tires is not None:
+            tires = np.uint16(np.around(tires))[0, :]
+            for i in tires:
+                # Mapping to project back to original from ROI
+                dy = point1[1]
+                # Draw circle where HoughCircles were detected
+                r = i[2]
+                cv.circle(orig_img, (i[0], i[1] + dy), radius=r, color=(0, 255, 0), thickness=2)
+                # Draw center of tires as dot
+                cv.circle(orig_img, (i[0], i[1] + dy), radius=1, color=(0, 0, 255), thickness=3)
     else:
-        print("No circles found.")
+        print("No rims found.")
 
-    plt.imshow(img)
+    plt.imshow(orig_img)
     plt.show()
 
 
@@ -203,13 +220,10 @@ def get_crop(frame, point1, point2):
     return img[point1[1]:point1[1]+point2[1], point1[0]:point2[0]]
 
 
-
-
 def main():
     morgan = load_single_image(CAR_FILEPATH)
 
-    hough_transform_lines(morgan)
-
-    hough_transform_circles(morgan, 105)
+    #hough_transform_lines(morgan)
+    hough_transform_circles(morgan, tires=True)
 
 main()
