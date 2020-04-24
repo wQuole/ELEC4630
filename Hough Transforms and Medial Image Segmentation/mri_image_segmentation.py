@@ -24,21 +24,11 @@ def get_cross_sectional_area(orig, thresh, dx, dy, draw=True):
     return area
 
 
-def adjust_gamma(image, gamma=1.0):
-    # source: https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
-    img = image.copy()
-    inverted_gamma = 1.0 / gamma
-    look_up_table = np.array([((i / 255.0) ** inverted_gamma) * 255
-                      for i in np.arange(0, 256)]).astype("uint8")
-    return cv.LUT(img , look_up_table)
-
-
 def snakes_algorithm(img, radius, alpha=0.015, beta=1, gamma=0.1):
     s = np.linspace(0, 2 * np.pi, 100)
     r = 358 + radius * np.sin(s)
     c = 269 + radius * np.cos(s)
     init = np.array([r, c]).T
-
     return active_contour(img, init, alpha=alpha, beta=beta, gamma=gamma, coordinates='rc', w_line=0, w_edge=1)
 
 
@@ -47,34 +37,32 @@ def method_one(image, point1, point2):
     img = utils.get_crop(image, point1, point2)
     img = cv.cvtColor(img.copy(), cv.COLOR_BGR2GRAY)
 
-    img = adjust_gamma(img, 1.5)
+    img = utils.adjust_gamma(img, 1.5)
     img = cv.GaussianBlur(img, (3, 3), 0)
     _, threshold = cv.threshold(img, 0, 255, cv.THRESH_OTSU)
 
     kernel = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
     dilation = cv.dilate(threshold, kernel, iterations=3)
-    erosion = cv.erode(threshold, kernel, iterations=3)
     closing = cv.morphologyEx(dilation, cv.MORPH_CLOSE, kernel, iterations=3)
-    opening = cv.morphologyEx(threshold, cv.MORPH_OPEN, kernel, iterations=3)
 
     dx, dy = point1[0], point1[1]
     orig_copy = np.copy(orig_img)
     area = get_cross_sectional_area(orig_copy, closing, dx, dy)
 
-    # utils.show_figures(images=
-    #              [orig_img,
-    #               threshold,
-    #               dilation,
-    #               closing,
-    #               utils.get_crop(orig_copy, point1, point2),
-    #               orig_copy],
-    #              titles=
-    #              ["Original",
-    #               "Threshold",
-    #               "Dilation",
-    #               "Closing",
-    #               "ROI",
-    #               "Result"], save=True)
+    utils.show_figures(images=
+                 [orig_img,
+                  threshold,
+                  dilation,
+                  closing,
+                  utils.get_crop(orig_copy, point1, point2),
+                  orig_copy],
+                 titles=
+                 ["Original",
+                  "Threshold",
+                  "Dilation",
+                  "Closing",
+                  "ROI",
+                  "Result"], save=False)
 
     return orig_copy, area
 
@@ -83,7 +71,7 @@ def method_two(image):
     # Preprocess image
     orig_img = np.copy(image)
     img = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    img = adjust_gamma(img, 1.5)
+    img = utils.adjust_gamma(img, 1.5)
     img = cv.GaussianBlur(img, (3, 3), 0)
     _, threshold = cv.threshold(img, 0, 255, cv.THRESH_OTSU)
 
@@ -93,10 +81,10 @@ def method_two(image):
     closing = cv.morphologyEx(dilation, cv.MORPH_CLOSE, kernel, iterations=3)
 
     # Inner wall
-    snake_in = snakes_algorithm(closing, 60)
+    snake_in = snakes_algorithm(closing, 60, alpha=0.003, beta=3, gamma=0.1)
 
     # Outer wall
-    snake_out = snakes_algorithm(closing, 79)
+    snake_out = snakes_algorithm(closing, 80, alpha=0.003, beta=3, gamma=0.1)
 
     # Cross-sectional area of hearts encircled by inner walls
     c = np.expand_dims(snake_in.astype(np.float32), 1)
@@ -104,40 +92,46 @@ def method_two(image):
     area = cv.contourArea(c)
 
     # Plot
-    utils.show_figure_snakes(orig_img, snake_in, snake_out, save=True)
+    utils.show_figure_snakes(orig_img, snake_in, snake_out, save=False)
 
-    return snake_in, area
+    return snake_in, snake_out, area
 
 
 def main():
+    # // Load MRI Heart Images
     hearts = utils.load_images(MRI_FILEPATH)
 
-    # M O R P H O L O G Y  &  C O N V E X  H U L L
-    # ROI = cv.selectROI("ROI", hearts[0])
-    # p1, p2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
-    # inner = []
-    # inner_areas = []
-    # for heart in hearts:
-    #     innerwall, a = method_one(heart, p1, p2)
-    #     inner.append(innerwall)
-    #     inner_areas.append(a)
-    # # for heart in inner:
-    # #     plt.imshow(heart)
-    # #     plt.show()
-    # plt.style.use('seaborn-muted')
-    # plt.plot(inner_areas)
-    # plt.show()
+    # // Morphology & Sklansky Convex Hull
+    ROI = cv.selectROI("ROI", hearts[0])
+    p1, p2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
+    inner = []
+    inner_areas = []
+    for heart in hearts:
+        innerwall, a = method_one(heart, p1, p2)
+        inner.append(innerwall)
+        inner_areas.append(a)
 
-    # S N A K E S
-    # outer = []
-    # outer_areas = []
-    # for heart in hearts:
-    #     outerwall, a = method_two(heart)
-    #     outer.append(outerwall)
-    #     outer_areas.append(a)
+    plt.style.use('seaborn-muted')
+    plt.plot(inner_areas)
+    plt.show()
 
-    # plt.style.use('seaborn-muted')
-    # plt.plot(outer_areas)
-    # plt.show()
+    # // Snakes: Active Contour Model
+    inner = []
+    outer = []
+    outer_areas = []
+    for heart in hearts:
+        innerwall, outerwall, a = method_two(heart)
+        inner.append(innerwall)
+        outer.append(outerwall)
+        outer_areas.append(a)
+
+    plt.style.use('seaborn-muted')
+    plt.plot(outer_areas)
+    plt.show()
+
+    # # //TODO Try alpha = 0.001, beta = 0.4, gamma = 100
+    # images = utils.load_images("output/MRI_Snakes/Test", extension="png")
+    # utils.show_images_snakes(images)
+
 
 main()
