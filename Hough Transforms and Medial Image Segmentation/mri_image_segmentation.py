@@ -10,7 +10,6 @@ from skimage.segmentation import active_contour
 MRI_FILEPATH = os.path.abspath("images/MRI")
 CAR_FILEPATH = os.path.abspath("images/morgan.jpg")
 CAR_FILEPATH2 = os.path.abspath("images/MORGAN_CROP.jpg")
-OUTPUT = os.path.abspath(("output"))
 
 
 def get_cross_sectional_area(orig, thresh, dx, dy, draw=True):
@@ -62,20 +61,21 @@ def method_one(image, point1, point2):
     orig_copy = np.copy(orig_img)
     area = get_cross_sectional_area(orig_copy, closing, dx, dy)
 
-    utils.show_figures(images=
-                 [orig_img,
-                  threshold,
-                  dilation,
-                  closing,
-                  utils.get_crop(orig_copy, point1, point2),
-                  orig_copy],
-                 titles=
-                 ["Original",
-                  "Threshold",
-                  "Dilation",
-                  "Closing",
-                  "ROI",
-                  "Result"], save=True)
+    # utils.show_figures(images=
+    #              [orig_img,
+    #               threshold,
+    #               dilation,
+    #               closing,
+    #               utils.get_crop(orig_copy, point1, point2),
+    #               orig_copy],
+    #              titles=
+    #              ["Original",
+    #               "Threshold",
+    #               "Dilation",
+    #               "Closing",
+    #               "ROI",
+    #               "Result"], save=True)
+
     return orig_copy, area
 
 
@@ -113,20 +113,20 @@ def main():
     hearts = utils.load_images(MRI_FILEPATH)
 
     # M O R P H O L O G Y  &  C O N V E X  H U L L
-    ROI = cv.selectROI("ROI", hearts[0])
-    p1, p2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
-    inner = []
-    inner_areas = []
-    for heart in hearts:
-        innerwall, a = method_one(heart, p1, p2)
-        inner.append(innerwall)
-        inner_areas.append(a)
-    # for heart in inner:
-    #     plt.imshow(heart)
-    #     plt.show()
-    plt.style.use('seaborn-muted')
-    plt.plot(inner_areas)
-    plt.show()
+    # ROI = cv.selectROI("ROI", hearts[0])
+    # p1, p2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
+    # inner = []
+    # inner_areas = []
+    # for heart in hearts:
+    #     innerwall, a = method_one(heart, p1, p2)
+    #     inner.append(innerwall)
+    #     inner_areas.append(a)
+    # # for heart in inner:
+    # #     plt.imshow(heart)
+    # #     plt.show()
+    # plt.style.use('seaborn-muted')
+    # plt.plot(inner_areas)
+    # plt.show()
 
     # S N A K E S
     # outer = []
@@ -135,6 +135,7 @@ def main():
     #     outerwall, a = method_two(heart)
     #     outer.append(outerwall)
     #     outer_areas.append(a)
+
     # plt.style.use('seaborn-muted')
     # plt.plot(outer_areas)
     # plt.show()

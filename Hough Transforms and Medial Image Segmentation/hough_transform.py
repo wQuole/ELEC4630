@@ -14,6 +14,9 @@ def hough_transform_lines(image, prob=True):
     ROI = cv.selectROI("ROI", image)
     point1, point2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
     img = utils.get_crop(image, point1, point2)
+    # Mapping to project back to original from ROI
+    dx = point1[0]
+    dy = point1[1]
 
     # Preprocess image
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -28,10 +31,10 @@ def hough_transform_lines(image, prob=True):
             x1, y1, x2, y2 = line[0]
             print(f"x1, y1, x2, y2 -->", x1, y1, x2, y2)
             # Update coords due to crop --> Project back on to original image
-            x1 += point1[0]
-            x2 += point1[0]
-            y1 += point1[1]
-            y2 += point1[1]
+            x1 += dx
+            x2 += dx
+            y1 += dy
+            y2 += dy
             # Draw line back onto original image
             cv.line(image, (x1, y1), (x2, y2), (0, 255, 0), 3)
 
@@ -43,23 +46,13 @@ def hough_transform_lines(image, prob=True):
             x0 = alpha * rho
             y0 = beta* rho
             gamma = 1000
-            x1 = int(x0 + gamma * (-beta)) + point1[0]
-            x2 = int(x0 - gamma * (-beta)) + point1[0]
-            y1 = int(y0 + gamma * (alpha)) + point1[1]
-            y2 = int(y0 - gamma * (alpha)) + point1[1]
+            x1 = int(x0 + gamma * (-beta)) + dx
+            x2 = int(x0 - gamma * (-beta)) + dx
+            y1 = int(y0 + gamma * (alpha)) + dy
+            y2 = int(y0 - gamma * (alpha)) + dy
 
             cv.line(image, (x1, y1), (x2, y2), (0, 255, 0), 3)
 
-    # utils.show_figures(images=
-    #              [orig_img,
-    #               blurred,
-    #               edges,
-    #               image],
-    #              titles=
-    #              ["Original",
-    #               "Blurred",
-    #               "Canny Edge",
-    #               "Result"], save=False)
     plt.axis('off')
     plt.imshow(image)
     plt.show()
@@ -70,6 +63,9 @@ def hough_transform_circles(image):
     # Select Region of Interest
     ROI = cv.selectROI("ROI", image)
     point1, point2 = (ROI[0], ROI[1]), (ROI[2], ROI[3])
+    # Mapping to project back to original from ROI
+    dx = point1[0]
+    dy = point1[1]
     # Prepare image
     img = utils.get_crop(image, point1, point2)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -87,19 +83,18 @@ def hough_transform_circles(image):
     if rims is not None:
         rims = np.uint16(np.around(rims))[0,:]
         for i in rims:
-            # Mapping to project back to original from ROI
-            dx = point1[0]
-            dy = point1[1]
-            # Draw circle where HoughCircles were detected
             r = i[2]
-            cv.circle(orig_img, (i[0] + dx, i[1] + dy), radius=r, color=(0, 255, 0), thickness=2)
+            # Draw circle where HoughCircles were detected
+            cv.circle(image, (i[0] + dx, i[1] + dy), radius=r, color=(0, 255, 0), thickness=3)
             # Draw center of circle as dot
-            cv.circle(orig_img, (i[0] + dx, i[1] + dy), radius=1, color=(255, 0, 0), thickness=3)
+            cv.circle(image, (i[0] + dx, i[1] + dy), radius=1, color=(255, 0, 0), thickness=3)
     else:
         print("No rims found.")
 
-    plt.imshow(orig_img)
+    plt.axis('off')
+    plt.imshow(image)
     plt.show()
+    return image
 
 
 def main():
