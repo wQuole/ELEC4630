@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import skimage.io as io
+import numpy as np
 import datetime
 
 
@@ -34,3 +35,30 @@ def get_label(labels):
     for lbl in labels:
         out.append(lbl[:1])
     return out
+
+def predict(train, test):
+    clf = []
+    for i, pred in enumerate(test):
+        image_index = check_distance(pred, train)
+        clf.append(image_index + 1)
+    return clf
+
+
+def check_distance(test_vector, all_weight_vectors):
+    dst = {}
+    for i, candidate in enumerate(all_weight_vectors):
+        dst[i] = np.linalg.norm(test_vector - candidate)
+
+    dst_values = list(dst.values())
+    lowest_dst = np.min(dst_values)
+    index = dst_values.index(lowest_dst)
+    return index
+
+
+def get_accuracy(y, y_pred):
+    hit = 0
+    for i, pred in enumerate(y_pred):
+        print(f"Predicted: {int(pred)} \t Actual: {int(y[i])}")
+        if int(pred) == int(y[i]):
+            hit += 1
+    return hit/len(y_pred)*100

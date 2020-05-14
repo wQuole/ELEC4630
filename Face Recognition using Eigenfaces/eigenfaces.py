@@ -57,32 +57,7 @@ class PCA():
         X = X.reshape((X.shape[0], self.img_height, self.img_width))
         return X
 
-def predict(train, test):
-    clf = []
-    for i, pred in enumerate(test):
-        image_index = check_distance(pred, train)
-        clf.append(image_index + 1)
-    return clf
 
-
-def check_distance(test_vector, all_weight_vectors):
-    dst = {}
-    for i, candidate in enumerate(all_weight_vectors):
-        dst[i] = np.linalg.norm(test_vector - candidate)
-
-    dst_values = list(dst.values())
-    lowest_dst = np.min(dst_values)
-    index = dst_values.index(lowest_dst)
-    return index
-
-
-def get_accuracy(y, y_pred):
-    hit = 0
-    for i, pred in enumerate(y_pred):
-        print(f"Predicted: {int(pred)} \t Actual: {int(y[i])}")
-        if int(pred) == int(y[i]):
-            hit += 1
-    return hit/len(y_pred)*100
 
 
 if __name__ == '__main__':
@@ -93,13 +68,13 @@ if __name__ == '__main__':
     #plot_faces(X_train, titles=names, height=H, width=W, n_row=1, n_col=6)
 
     pca = PCA()
-    num_of_comp = 6
+    num_of_comp = 5
     pc, e_vector, e_value = pca.fit(X_train, num_of_comp)
     print(f"\ne_vector.shape --> {e_vector.shape}")
     rec = pca.inverse_transform(e_vector)
     #plot_faces(rec, names, H, W, 1, num_of_comp)
 
-    eigenfaces = pc.T.reshape((N, H, W))
+    eigenfaces = pc.T.reshape((num_of_comp, H, W))
     eigenfaces_titles = ["Eigenface_%d" % e for e in range(N)]
     #plot_faces(eigenfaces, eigenfaces_titles, H, W, 1, N)
 
@@ -108,7 +83,7 @@ if __name__ == '__main__':
     test_names = list(test_data.keys())
     X_test = np.array(list(test_data.values()), dtype=np.float64)
     N, H, W = X_test.shape
-    plot_faces(X_test, titles=test_names, height=H, width=W, n_row=4, n_col=8)
+    plot_faces(X_test, titles=get_label(test_names), height=H, width=W, n_row=4, n_col=8)
 
     transformed = pca.transform(X_test)
     print(f"\nTransformed.shape --> {transformed.shape}")
