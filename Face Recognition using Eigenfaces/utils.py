@@ -2,11 +2,27 @@ import os
 import matplotlib.pyplot as plt
 import skimage.io as io
 import numpy as np
-import datetime
+from datetime import datetime
 
 
-def plot_faces(images, titles, height, width, n_row, n_col):
-    NOW = datetime.datetime.now()
+def plot_pred(images, titles, labels, height, width, n_row, n_col, save=False):
+    NOW  = datetime.now().strftime("%m%d%Y_%H:%M%S")
+
+    plt.figure(figsize=(3 * n_col, 3 * n_row))
+    for i in range(n_row * n_col):
+        plt.subplot(n_row, n_col, i + 1)
+        plt.imshow(images[i].reshape((height, width)), cmap='gray')
+        plt.title(f"Pred: {titles[i]}\n"
+                  f"True: {labels[i]}")
+        plt.xticks(())
+        plt.yticks(())
+    if save:
+        plt.savefig(f"output/{NOW}.pdf", bbox_inches='tight')
+    plt.show()
+
+
+def plot_faces(images, titles, height, width, n_row, n_col, save=False):
+    NOW  = datetime.now().strftime("%m%d%Y_%H:%M%S")
 
     plt.figure(figsize=(3 * n_col, 3 * n_row))
     for i in range(n_row * n_col):
@@ -15,7 +31,8 @@ def plot_faces(images, titles, height, width, n_row, n_col):
         plt.title(titles[i])
         plt.xticks(())
         plt.yticks(())
-    plt.savefig(f"output/{NOW}.png")
+    if save:
+        plt.savefig(f"output/{NOW}.pdf", bbox_inches='tight')
     plt.show()
 
 
@@ -30,11 +47,13 @@ def load_data(path):
                 images[filename] = im
     return images
 
+
 def get_label(labels):
     out = []
     for lbl in labels:
         out.append(lbl[:1])
     return out
+
 
 def predict(train, test):
     clf = []
@@ -61,4 +80,5 @@ def get_accuracy(y, y_pred):
         print(f"Predicted: {int(pred)} \t Actual: {int(y[i])}")
         if int(pred) == int(y[i]):
             hit += 1
+    print(f"Score: {hit}/{len(y_pred)}")
     return hit/len(y_pred)*100
