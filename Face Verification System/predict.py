@@ -1,13 +1,30 @@
 import os
 import face_recognition
 import cv2 as cv
+import numpy as np
+import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
+from datetime import datetime
 
 CALTECH = "./dataset/unknown_faces"
 ME = "./dataset/known_faces"
 READID = "./dataset/READID.jpg"
 
-def load_images(path, extension=".jpg"):
+def plot_faces(images, n_row, n_col, save=False):
+    NOW  = datetime.now().strftime("%m%d%Y_%H:%M%S")
+
+    plt.figure(figsize=(n_col, n_row))
+    for i in range(n_row * n_col):
+        plt.subplot(n_row, n_col, i + 1)
+        plt.imshow(images[i], cmap='gray')
+        plt.xticks(())
+        plt.yticks(())
+        plt.axis('off')
+    if save:
+        plt.savefig(f"output/{NOW}.pdf", bbox_inches='tight')
+    plt.show()
+
+def load_images(path, extension=".jpg", single=False):
     images = []
     for root, dirs, files in sorted(os.walk(path)):
         for file in sorted(files):
@@ -15,6 +32,8 @@ def load_images(path, extension=".jpg"):
             if file.endswith(f"{extension}"):
                 im = face_recognition.load_image_file(filepath)
                 images.append(im)
+    if single:
+        return face_recognition.load_image_file(path)
     return images
 
 
@@ -28,10 +47,9 @@ def get_face_encodings(filepath):
     return known_face_encodings
 
 
-def classify_image(readid_encodings, test_image):
+def classify_image(readid_encodings, test_image, readid_image):
     # Find location and encodings of unknown faces in test image
     test_face_locations = face_recognition.face_locations(test_image)
-    print(test_face_locations)
     test_face_encodings = face_recognition.face_encodings(test_image, test_face_locations)
 
     # Convert to PIL format
@@ -40,32 +58,47 @@ def classify_image(readid_encodings, test_image):
     draw = ImageDraw.Draw(pil_image)
 
     # Loop through unknown_faces in test image
+    correct = False
     for (top, right, bottom, left), face_encoding in zip(test_face_locations, test_face_encodings):
         matches = face_recognition.compare_faces(readid_encodings, face_encoding)
 
+        name = "Not William"
         if True in matches:
+            correct = True
             name = "William"
-        else:
-            name = "Not William"
 
         # Draw box
-        draw.rectangle(((left, top), (right, bottom)), outline=(255, 255, 0))
+        cv.rectangle(test_image, (left, top), (right, bottom), (0, 255, 0), 3)
         # Draw label
-        text_width, text_height = draw.textsize(name)
-        draw.rectangle(((left, bottom - text_height), (right, bottom)), fill=(0, 255, 0), outline=(0, 255, 0))
-        draw.text(xy=(left + 6, bottom - text_height - 5), text=name, fill=(0, 0, 0))
+        y = top - 15 if top - 15 > 15 else top + 15
 
-    del draw
+        cv.putText(test_image, name, (left, y), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     # Display image
-    pil_image.show()
+    #plot_faces([readid_image, test_image], 1, 2)
+
+    # Return correctly labeled images
+    if correct:
+        return correct, test_image
+    return not correct, test_image
+
 
 
 if __name__ == '__main__':
-    unkown_faces = load_images(CALTECH)
+    readid_encodings = get_face_encodings(READID)
+    readid_image = load_images(READID, single=True)
+
+    unknown_faces = load_images(CALTECH)
     known_faces = load_images(ME)
-    test_images = known_faces + unkown_faces
-    print(len(test_images))
-    ground_truth = get_face_encodings(READID)
-    for img in test_images[:2]:
-        classify_image(ground_truth, img)
+    test_images = known_faces + unknown_faces
+
+    me = []
+    not_me = []
+    for img in test_images:
+        check, image = classify_image(readid_encodings, img, readid_image)
+        if check:
+            me.append(image)
+        else:
+            not_me.append(image)
+
+    for
