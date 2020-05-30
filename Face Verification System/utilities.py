@@ -1,4 +1,6 @@
 import os
+from math import sqrt
+from random import sample
 import matplotlib.pyplot as plt
 from face_recognition import load_image_file
 
@@ -35,6 +37,17 @@ def plot_faces(images, idx, n_row, n_col, save=False):
         plt.clf()
     elif not save:
         plt.show()
+
+def plot_random_samples(n, images, save=False):
+    x = int(sqrt(n))
+    fig, ax = plt.subplots(x, x, figsize=(12, 16))
+    for idx, img in enumerate(sample(images, n)):
+        ax[int(idx /x), idx % x].imshow(img, )
+        ax[int(idx /x), idx % x].axis('off')
+    if not save:
+        plt.show()
+    else:
+        plt.savefig(f"output/sample_faces.pdf", bbox_inches='tight')
 
 
 def load_images(path, extension=".jpg", single=False):
